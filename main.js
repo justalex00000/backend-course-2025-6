@@ -5,6 +5,23 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import bodyParser from "body-parser";
+import swaggerUi from "swagger-ui-express";
+import swaggerJsdoc from "swagger-jsdoc";
+
+const swaggerOptions = {
+  definition: {
+    openapi: "3.0.0",
+    info: {
+    title: "Inventory API",
+    version: "1.0.0",
+    description: "API documentation for Inventory Web Service",
+},
+},
+apis: ["./main.js"],
+};
+
+
+const swaggerSpecs = swaggerJsdoc(swaggerOptions);
 
 const program = new Command();
 
@@ -54,7 +71,39 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
-//POST /register
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+
+
+/**
+ * @openapi
+ * /register:
+ *   post:
+ *     summary: Register a new inventory item
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - inventory_name
+ *             properties:
+ *               inventory_name:
+ *                 type: string
+ *                 description: Name of the item
+ *               description:
+ *                 type: string
+ *                 description: Description of the item
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Item successfully created
+ *       400:
+ *         description: Missing inventory_name
+ */
 app.post("/register", upload.single("photo"), (req, res) => {
   const { inventory_name, description } = req.body;
 
@@ -80,7 +129,15 @@ app.post("/register", upload.single("photo"), (req, res) => {
   return res.status(201).json(item);
 });
 
-//GET /inventory
+/**
+ * @openapi
+ * /inventory:
+ *   get:
+ *     summary: Get all inventory items
+ *     responses:
+ *       200:
+ *         description: Returns list of all items
+ */
 app.get("/inventory", (req, res) => {
   const db = loadDB();
 
@@ -94,7 +151,84 @@ app.get("/inventory", (req, res) => {
   res.status(200).json(enriched);
 });
 
-//GET /inventory/:id
+/**
+ * @openapi
+ * /inventory/{id}:
+ *   get:
+ *     summary: Get item by ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the item
+ *     responses:
+ *       200:
+ *         description: Item found
+ *       404:
+ *         description: Item not found
+ *   put:
+ *     summary: Update an item (name/description)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the item to update
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: New name of the item
+ *               description:
+ *                 type: string
+ *                 description: New description of the item
+ *     responses:
+ *       200:
+ *         description: Item updated
+ *       404:
+ *         description: Item not found
+ *   delete:
+ *     summary: Delete an inventory item
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the item to delete
+ *     responses:
+ *       200:
+ *         description: Item successfully deleted
+ *       404:
+ *         description: Item not found
+ */
+
+/**
+ * @openapi
+ * /RegisterForm.html:
+ *   get:
+ *     summary: Web form to register a new inventory device
+ *     responses:
+ *       200:
+ *         description: HTML form for device registration
+ */
+/**
+ * @openapi
+ * /SearchForm.html:
+ *   get:
+ *     summary: Web form to search for an inventory device
+ *     responses:
+ *       200:
+ *         description: HTML form for device search
+ */
 app.get("/inventory/:id", (req, res) => {
   const db = loadDB();
   const it = db.items.find((x) => x.id === req.params.id);
@@ -109,7 +243,7 @@ app.get("/inventory/:id", (req, res) => {
   });
 });
 
-//PUT /inventory/:id
+
 app.put("/inventory/:id", (req, res) => {
   const db = loadDB();
   const idx = db.items.findIndex((x) => x.id === req.params.id);
@@ -127,7 +261,51 @@ app.put("/inventory/:id", (req, res) => {
   return res.status(200).json(db.items[idx]);
 });
 
-//GET /inventory/:id/photo
+/**
+ * @openapi
+ * /inventory/{id}/photo:
+ *   get:
+ *     summary: Get item photo
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the item
+ *     responses:
+ *       200:
+ *         description: JPEG photo file
+ *       404:
+ *         description: Photo or item not found
+ *   put:
+ *     summary: Update item photo
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the item
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               photo:
+ *                 type: string
+ *                 format: binary
+ *                 description: New photo file
+ *     responses:
+ *       200:
+ *         description: Photo updated
+ *       400:
+ *         description: Photo file missing
+ *       404:
+ *         description: Item not found
+ */
 app.get("/inventory/:id/photo", (req, res) => {
   const db = loadDB();
   const it = db.items.find((x) => x.id === req.params.id);
@@ -142,7 +320,7 @@ app.get("/inventory/:id/photo", (req, res) => {
   fs.createReadStream(fpath).pipe(res);
 });
 
-//PUT /inventory/:id/photo
+
 app.put("/inventory/:id/photo", upload.single("photo"), (req, res) => {
   const db = loadDB();
   const idx = db.items.findIndex((x) => x.id === req.params.id);
@@ -167,7 +345,7 @@ app.put("/inventory/:id/photo", upload.single("photo"), (req, res) => {
   return res.status(200).json(db.items[idx]);
 });
 
-//DELETE /inventory/:id
+
 app.delete("/inventory/:id", (req, res) => {
   const db = loadDB();
   const idx = db.items.findIndex((x) => x.id === req.params.id);
@@ -186,7 +364,56 @@ app.delete("/inventory/:id", (req, res) => {
   return res.status(200).json({ deleted: deleted.id });
 });
 
-//GET /search
+/**
+ * @openapi
+ * /search:
+ *   get:
+ *     summary: Search an inventory item by ID
+ *     parameters:
+ *       - in: query
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: ID of the item to search
+ *       - in: query
+ *         name: includePhoto
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ["on"]
+ *         description: |
+ *           Include URL to the item's photo.
+ *           If checkbox not checked, parameter is undefined.
+ *           If checkbox checked, parameter value is "on".
+ *     responses:
+ *       200:
+ *         description: Found item
+ *       400:
+ *         description: Missing id parameter
+ *       404:
+ *         description: Item not found
+ *   post:
+ *     summary: Search an inventory item by ID (POST)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: string
+ *               includePhoto:
+ *                 type: string
+ *     responses:
+ *       200: 
+ *         description: Found item
+ *       400:
+ *         description: Missing id in request body
+ *       404:
+ *         description: Item not found
+ */
 app.get("/search", (req, res) => {
   const { id, includePhoto } = req.query;
 
@@ -206,9 +433,9 @@ app.get("/search", (req, res) => {
   });
 });
 
-//POST /search
+
 app.post("/search", (req, res) => {
-  const { id, has_photo } = req.body;
+  const { id, includePhoto } = req.body;
 
   if (!id) return res.status(400).json({ error: "id is required" });
 
@@ -220,7 +447,7 @@ app.post("/search", (req, res) => {
   return res.status(200).json({
     ...it,
     photo_url:
-      has_photo && it.photo
+      includePhoto && it.photo
         ? `${req.protocol}://${req.get("host")}/inventory/${it.id}/photo`
         : null,
   });
